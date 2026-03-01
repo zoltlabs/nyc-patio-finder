@@ -1,0 +1,17 @@
+{
+  "name": "nyc-patio-finder",
+  "version": "1.0.0",
+  "description": "Find NYC bar patios and restaurants getting the best sunlight — real 3D buildings, live sun position, geometric shadow scoring",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "vite": "^6.0.0"
+  },
+  "dependencies": {
+    "mapbox-gl": "^3.19.0",
+    "suncalc": "^1.9.0"
+  }
+}
