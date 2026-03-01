@@ -2,9 +2,10 @@ import type { LoadingState } from '../types/atmosphere';
 
 interface LoadingOverlayProps {
   loadingState: LoadingState;
+  cityShortName: string;
 }
 
-export function LoadingOverlay({ loadingState }: LoadingOverlayProps) {
+export function LoadingOverlay({ loadingState, cityShortName }: LoadingOverlayProps) {
   if (!loadingState.visible) return null;
 
   if (loadingState.tokenRequired) {
@@ -42,7 +43,7 @@ export function LoadingOverlay({ loadingState }: LoadingOverlayProps) {
     <div id="loading">
       <div id="loading-icon">☀️</div>
       <div id="sidebar-title" style={{ fontSize: 28, marginBottom: 8 }}>
-        <strong>NYC</strong> <span>Patio Finder</span>
+        <strong>{cityShortName}</strong> <span>Patio Finder</span>
       </div>
       <p style={{ letterSpacing: '0.05em', textTransform: 'uppercase', fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.4)' }}>
         Loading 3D city · real buildings · live sun

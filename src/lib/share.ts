@@ -28,6 +28,6 @@ export async function shareVenue(
     return 'native';
   }
 
-  await navigator.clipboard.writeText(url);
+  await navigator.clipboard.writeText(text);
   return 'clipboard';
 }

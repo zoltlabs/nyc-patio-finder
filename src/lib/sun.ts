@@ -5,14 +5,17 @@ import type { SunDirection, SunVisualState } from '../types/map';
 import { dateAt } from './time';
 import { lerp, lerpHex } from './colors';
 
-export const NYC = { lat: 40.7484, lng: -73.9857 };
-
-export function sunPos(hour: number) {
-  return SunCalc.getPosition(dateAt(hour), NYC.lat, NYC.lng);
+export interface Coords {
+  lat: number;
+  lng: number;
 }
 
-export function mapboxSunDir(hour: number): SunDirection {
-  const position = sunPos(hour);
+export function sunPos(hour: number, coords: Coords) {
+  return SunCalc.getPosition(dateAt(hour), coords.lat, coords.lng);
+}
+
+export function mapboxSunDir(hour: number, coords: Coords): SunDirection {
+  const position = sunPos(hour, coords);
   const altDeg = position.altitude * (180 / Math.PI);
   const polarDeg = Math.max(0, Math.min(90, 90 - altDeg));
   let azDeg = ((position.azimuth + Math.PI) * (180 / Math.PI)) % 360;
@@ -20,8 +23,28 @@ export function mapboxSunDir(hour: number): SunDirection {
   return { dir: [azDeg, polarDeg], altDeg, azDeg };
 }
 
-export function atmosphere(hour: number): AtmosphereState {
-  if (hour < 6.4 || hour >= 22) {
+export function atmosphere(hour: number, coords?: Coords): AtmosphereState {
+  // If coords provided, compute dynamic sunrise/sunset thresholds
+  let sunriseHour = 6.4;
+  let sunsetHour = 19.8;
+
+  if (coords) {
+    const times = SunCalc.getTimes(dateAt(12), coords.lat, coords.lng);
+    sunriseHour = times.sunrise.getHours() + times.sunrise.getMinutes() / 60;
+    sunsetHour = times.sunset.getHours() + times.sunset.getMinutes() / 60;
+  }
+
+  // Derive thresholds from sunrise/sunset
+  const nightEnd = sunriseHour;
+  const morningStart = sunriseHour + 1.6;
+  const midMorningStart = morningStart;
+  const middayStart = midMorningStart + 2;
+  const lateAfternoonStart = sunsetHour - 3.8;
+  const goldenStart = sunsetHour - 2.3;
+  const twilightEnd = sunsetHour + 1.7;
+  const lateNightStart = sunsetHour + 1.7;
+
+  if (hour < nightEnd || hour >= lateNightStart + (22 - 21.5)) {
     return {
       preset: 'night',
       stars: 0.92,
@@ -35,12 +58,12 @@ export function atmosphere(hour: number): AtmosphereState {
       dirC: '#001133',
       dirI: 0,
       sunI: 0,
-      name: '🌙 Night',
+      name: '\u{1F319} Night',
       nameC: '#5577cc',
     };
   }
-  if (hour < 8) {
-    const t = (hour - 6.4) / 1.6;
+  if (hour < morningStart) {
+    const t = (hour - nightEnd) / (morningStart - nightEnd);
     return {
       preset: 'dawn',
       stars: Math.max(0, 0.6 - t * 0.6),
@@ -54,12 +77,12 @@ export function atmosphere(hour: number): AtmosphereState {
       dirC: lerpHex('#ff6633', '#fff4e0', t),
       dirI: lerp(0.1, 0.6, t),
       sunI: lerp(3, 16, t),
-      name: '🌅 Sunrise',
+      name: '\u{1F305} Sunrise',
       nameC: '#ff8844',
     };
   }
-  if (hour < 10) {
-    const t = (hour - 8) / 2;
+  if (hour < middayStart) {
+    const t = (hour - midMorningStart) / (middayStart - midMorningStart);
     return {
       preset: 'day',
       stars: 0,
@@ -73,12 +96,12 @@ export function atmosphere(hour: number): AtmosphereState {
       dirC: '#fff9e8',
       dirI: lerp(0.62, 0.78, t),
       sunI: lerp(16, 20, t),
-      name: '🌤 Morning',
+      name: '\u{1F324} Morning',
       nameC: '#88ccee',
     };
   }
-  if (hour < 16) {
-    const peak = Math.sin(((hour - 10) / 6) * Math.PI);
+  if (hour < lateAfternoonStart) {
+    const peak = Math.sin(((hour - middayStart) / (lateAfternoonStart - middayStart)) * Math.PI);
     return {
       preset: 'day',
       stars: 0,
@@ -92,12 +115,12 @@ export function atmosphere(hour: number): AtmosphereState {
       dirC: '#fffeee',
       dirI: lerp(0.78, 0.95, peak),
       sunI: lerp(20, 26, peak),
-      name: '☀️ Bright Midday',
+      name: '\u2600\uFE0F Bright Midday',
       nameC: '#fffde0',
     };
   }
-  if (hour < 17.5) {
-    const t = (hour - 16) / 1.5;
+  if (hour < goldenStart) {
+    const t = (hour - lateAfternoonStart) / (goldenStart - lateAfternoonStart);
     return {
       preset: 'day',
       stars: 0,
@@ -111,12 +134,12 @@ export function atmosphere(hour: number): AtmosphereState {
       dirC: lerpHex('#fffeee', '#ffcc55', t),
       dirI: lerp(0.95, 0.78, t),
       sunI: lerp(26, 20, t),
-      name: '🌤 Late Afternoon',
+      name: '\u{1F324} Late Afternoon',
       nameC: '#ffcc88',
     };
   }
-  if (hour < 19.8) {
-    const t = (hour - 17.5) / 2.3;
+  if (hour < sunsetHour) {
+    const t = (hour - goldenStart) / (sunsetHour - goldenStart);
     return {
       preset: 'dusk',
       stars: t > 0.55 ? (t - 0.55) * 0.45 : 0,
@@ -130,12 +153,12 @@ export function atmosphere(hour: number): AtmosphereState {
       dirC: lerpHex('#ffcc55', '#ff5522', t),
       dirI: Math.max(0, lerp(0.78, 0, t)),
       sunI: Math.max(0, lerp(20, 0, t)),
-      name: t < 0.6 ? '🌇 Golden Hour ✨' : '🌆 Sunset',
+      name: t < 0.6 ? '\u{1F307} Golden Hour \u2728' : '\u{1F306} Sunset',
       nameC: t < 0.6 ? '#ffcc44' : '#ff6633',
     };
   }
-  if (hour < 21.5) {
-    const t = (hour - 19.8) / 1.7;
+  if (hour < twilightEnd) {
+    const t = (hour - sunsetHour) / (twilightEnd - sunsetHour);
     return {
       preset: 'night',
       stars: lerp(0.28, 0.8, t),
@@ -149,7 +172,7 @@ export function atmosphere(hour: number): AtmosphereState {
       dirC: '#111122',
       dirI: 0,
       sunI: 0,
-      name: '🌇 Twilight',
+      name: '\u{1F307} Twilight',
       nameC: '#885599',
     };
   }
@@ -166,7 +189,7 @@ export function atmosphere(hour: number): AtmosphereState {
     dirC: '#001133',
     dirI: 0,
     sunI: 0,
-    name: '🌃 Night',
+    name: '\u{1F303} Night',
     nameC: '#5577cc',
   };
 }
@@ -212,8 +235,8 @@ function sunPalette(altitude: number) {
   };
 }
 
-function getSunScreenPos(map: Map, hour: number) {
-  const sun = mapboxSunDir(hour);
+function getSunScreenPos(map: Map, hour: number, coords: Coords) {
+  const sun = mapboxSunDir(hour, coords);
   const center = map.getCenter();
   const azRad = sun.azDeg * Math.PI / 180;
   const distance = 60000;
@@ -225,9 +248,9 @@ function getSunScreenPos(map: Map, hour: number) {
   return { x: horizonPoint.x, y: Math.max(8, y), alt: sun.altDeg };
 }
 
-export function buildSunVisualState(map: Map, hour: number): SunVisualState {
-  const sun = mapboxSunDir(hour);
-  const pos = getSunScreenPos(map, hour);
+export function buildSunVisualState(map: Map, hour: number, coords: Coords): SunVisualState {
+  const sun = mapboxSunDir(hour, coords);
+  const pos = getSunScreenPos(map, hour, coords);
   const opacity = sun.altDeg >= 4 ? 1 : Math.max(0, (sun.altDeg + 5) / 9);
   const scaleFactor = Math.max(0.65, 2 - sun.altDeg / 28);
   const discSize = Math.round(46 * scaleFactor);

@@ -3,16 +3,17 @@ import { VenueListItem } from './VenueListItem';
 
 interface VenueListProps {
   venues: VenueWithScore[];
+  emptyMessage?: string;
   onSelect: (lng: number, lat: number) => void;
   onShare: (venue: VenueWithScore) => void;
 }
 
-export function VenueList({ venues, onSelect, onShare }: VenueListProps) {
+export function VenueList({ venues, emptyMessage, onSelect, onShare }: VenueListProps) {
   if (!venues.length) {
     return (
       <div id="venue-list">
         <div className="vi">
-          <div className="vi-name">No venues match the current filters.</div>
+          <div className="vi-name">{emptyMessage ?? 'No venues match the current filters.'}</div>
         </div>
       </div>
     );

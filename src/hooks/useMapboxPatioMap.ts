@@ -1,12 +1,14 @@
 import { useEffect, useEffectEvent, useMemo, useRef, useState, type RefObject } from 'react';
 import mapboxgl, { type GeoJSONSource, type LightsSpecification, type Map, type Popup } from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
+import type { CityConfig } from '../data/cities';
 import { scoreColor } from '../lib/colors';
 import { buildGeoJSON, calcScore } from '../lib/scoring';
-import { buildSunVisualState, mapboxSunDir, NYC } from '../lib/sun';
+import { buildSunVisualState, mapboxSunDir } from '../lib/sun';
 import { formatDisplayTime } from '../lib/time';
-import { computeShadowScores, getShadowStatus, loadBuildingCache } from '../lib/shadows';
+import { computeLocationShadowScore, computeShadowScores, getShadowStatus, loadBuildingCache } from '../lib/shadows';
 import type { AtmosphereState, LoadingState, ShadowStatus } from '../types/atmosphere';
+import type { AddressResult } from '../types/location';
 import type { MapViewportBounds, SunVisualState, VenueFeatureProperties } from '../types/map';
 import type { ShadowScore, Venue } from '../types/venue';
 
@@ -26,7 +28,9 @@ const EMPTY_SUN_VISUAL: SunVisualState = {
 interface UseMapboxPatioMapArgs {
   allVenues: Venue[];
   atmosphereState: AtmosphereState;
+  city: CityConfig;
   currentHour: number;
+  destinationLocation: AddressResult | null;
   displayedVenues: Venue[];
   mapContainerRef: RefObject<HTMLDivElement | null>;
   shadowScores: Record<string, ShadowScore>;
@@ -84,7 +88,9 @@ function popupHTML(properties: VenueFeatureProperties, hour: number): string {
 export function useMapboxPatioMap({
   allVenues,
   atmosphereState,
+  city,
   currentHour,
+  destinationLocation,
   displayedVenues,
   mapContainerRef,
   shadowScores,
@@ -101,26 +107,41 @@ export function useMapboxPatioMap({
   const shadowDebounceRef = useRef<number | null>(null);
   const hideLoadingRef = useRef<number | null>(null);
   const [mapReady, setMapReady] = useState(false);
+  const [destinationSunlight, setDestinationSunlight] = useState<ShadowScore | null>(null);
   const [sunVisual, setSunVisual] = useState<SunVisualState>(EMPTY_SUN_VISUAL);
+
+  const coords = useMemo(() => ({ lat: city.lat, lng: city.lng }), [city.lat, city.lng]);
 
   const latest = useRef({
     allVenues,
     atmosphereState,
+    city,
     currentHour,
+    destinationLocation,
     displayedVenues,
     shadowScores,
     visibleVenues,
   });
 
   useEffect(() => {
-    latest.current = { allVenues, atmosphereState, currentHour, displayedVenues, shadowScores, visibleVenues };
-  }, [allVenues, atmosphereState, currentHour, displayedVenues, shadowScores, visibleVenues]);
+    latest.current = {
+      allVenues,
+      atmosphereState,
+      city,
+      currentHour,
+      destinationLocation,
+      displayedVenues,
+      shadowScores,
+      visibleVenues,
+    };
+  }, [allVenues, atmosphereState, city, currentHour, destinationLocation, displayedVenues, shadowScores, visibleVenues]);
 
   const refreshVenueSource = useEffectEvent(() => {
     const map = mapRef.current;
     const source = map?.getSource('venues') as GeoJSONSource | undefined;
     if (!source) return;
-    source.setData(buildGeoJSON(latest.current.displayedVenues, latest.current.currentHour, latest.current.shadowScores));
+    const c = latest.current.city;
+    source.setData(buildGeoJSON(latest.current.displayedVenues, latest.current.currentHour, latest.current.shadowScores, { lat: c.lat, lng: c.lng }, c.shortName));
   });
 
   const refreshOpenPopup = useEffectEvent(() => {
@@ -139,8 +160,9 @@ export function useMapboxPatioMap({
       return;
     }
 
+    const c = latest.current.city;
     const geo = latest.current.shadowScores[venue.id];
-    const score = geo?.score ?? calcScore(venue, latest.current.currentHour);
+    const score = geo?.score ?? calcScore(venue, latest.current.currentHour, { lat: c.lat, lng: c.lng });
     const color = scoreColor(score);
 
     popup.setHTML(
@@ -150,7 +172,7 @@ export function useMapboxPatioMap({
           name: venue.name,
           category: venue.category,
           outdoorSetting: venue.outdoorSetting,
-          hood: venue.hood || 'NYC',
+          hood: venue.hood || c.shortName,
           score,
           color,
           geoVerified: Boolean(geo?.geo),
@@ -165,7 +187,36 @@ export function useMapboxPatioMap({
   const updateSunVisual = useEffectEvent(() => {
     const map = mapRef.current;
     if (!map) return;
-    setSunVisual(buildSunVisualState(map, latest.current.currentHour));
+    const c = latest.current.city;
+    setSunVisual(buildSunVisualState(map, latest.current.currentHour, { lat: c.lat, lng: c.lng }));
+  });
+
+  const refreshDestinationSunlight = useEffectEvent(() => {
+    const destination = latest.current.destinationLocation;
+    if (!destination) {
+      setDestinationSunlight(null);
+      return;
+    }
+
+    const map = mapRef.current;
+    if (!map) return;
+
+    let buildingCache = buildingCacheRef.current;
+    if (!buildingCache?.length) {
+      try {
+        buildingCache = loadBuildingCache(map);
+        buildingCacheRef.current = buildingCache;
+      } catch {
+        buildingCache = [];
+      }
+    }
+
+    setDestinationSunlight(
+      computeLocationShadowScore(destination, latest.current.currentHour, buildingCache, {
+        lat: destination.lat,
+        lng: destination.lng,
+      })
+    );
   });
 
   const runShadowAnalysis = useEffectEvent((hour: number) => {
@@ -189,7 +240,8 @@ export function useMapboxPatioMap({
       return;
     }
 
-    const scores = computeShadowScores(latest.current.allVenues, hour, buildingCache);
+    const c = latest.current.city;
+    const scores = computeShadowScores(latest.current.allVenues, hour, buildingCache, { lat: c.lat, lng: c.lng });
     onShadowScoresChange(scores);
 
     const status = getShadowStatus(scores);
@@ -209,7 +261,8 @@ export function useMapboxPatioMap({
     const map = mapRef.current;
     if (!map) return;
 
-    const sun = mapboxSunDir(hour);
+    const c = latest.current.city;
+    const sun = mapboxSunDir(hour, { lat: c.lat, lng: c.lng });
 
     try {
       map.setConfigProperty('basemap', 'lightPreset', nextAtmosphere.preset);
@@ -268,9 +321,11 @@ export function useMapboxPatioMap({
     refreshVenueSource();
     refreshOpenPopup();
     updateSunVisual();
+    refreshDestinationSunlight();
     scheduleShadowAnalysis(hour);
   });
 
+  // Initialize map
   useEffect(() => {
     if (!mapContainerRef.current) return;
 
@@ -284,10 +339,10 @@ export function useMapboxPatioMap({
     const map = new mapboxgl.Map({
       container: mapContainerRef.current,
       style: 'mapbox://styles/mapbox/standard',
-      center: [NYC.lng, NYC.lat],
-      zoom: 13.6,
-      pitch: 58,
-      bearing: -12,
+      center: [city.lng, city.lat],
+      zoom: city.zoom,
+      pitch: city.pitch,
+      bearing: city.bearing,
       antialias: true,
       preserveDrawingBuffer: true,
     });
@@ -298,7 +353,7 @@ export function useMapboxPatioMap({
     const onLoad = () => {
       map.addSource('venues', {
         type: 'geojson',
-        data: buildGeoJSON(latest.current.displayedVenues, latest.current.currentHour, latest.current.shadowScores),
+        data: buildGeoJSON(latest.current.displayedVenues, latest.current.currentHour, latest.current.shadowScores, { lat: latest.current.city.lat, lng: latest.current.city.lng }, latest.current.city.shortName),
       });
 
       map.addLayer({
@@ -366,6 +421,7 @@ export function useMapboxPatioMap({
       map.on('idle', () => {
         buildingCacheRef.current = null;
         scheduleShadowAnalysis(latest.current.currentHour);
+        refreshDestinationSunlight();
       });
 
       map.on('moveend', () => {
@@ -401,6 +457,29 @@ export function useMapboxPatioMap({
     };
   }, [mapContainerRef, onLoadingStateChange, onViewportBoundsChange]);
 
+  // Fly to new city when city changes (after initial load)
+  const prevCityRef = useRef(city.slug);
+  useEffect(() => {
+    if (prevCityRef.current === city.slug) return;
+    prevCityRef.current = city.slug;
+
+    const map = mapRef.current;
+    if (!map) return;
+
+    buildingCacheRef.current = null;
+    popupRef.current?.remove();
+    popupVenueIdRef.current = null;
+
+    map.flyTo({
+      center: [city.lng, city.lat],
+      zoom: city.zoom,
+      bearing: city.bearing,
+      pitch: city.pitch,
+      duration: 2000,
+      essential: true,
+    });
+  }, [city]);
+
   useEffect(() => {
     refreshVenueSource();
   }, [shadowScores, visibleVenues, currentHour]);
@@ -408,6 +487,10 @@ export function useMapboxPatioMap({
   useEffect(() => {
     applyScene(currentHour, atmosphereState);
   }, [atmosphereState, currentHour]);
+
+  useEffect(() => {
+    refreshDestinationSunlight();
+  }, [currentHour, destinationLocation, mapReady]);
 
   const flyToVenue = useMemo(() => {
     return (lng: number, lat: number) => {
@@ -458,6 +541,7 @@ export function useMapboxPatioMap({
   }, []);
 
   return {
+    destinationSunlight,
     flyToVenue,
     fitToVenues,
     mapReady,

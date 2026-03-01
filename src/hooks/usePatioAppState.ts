@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { CURATED_VENUES } from '../data/curatedVenues';
+import type { CityConfig } from '../data/cities';
 import { fetchOSMVenues } from '../lib/osm';
-import { applyVenueFilters, scoreVenues } from '../lib/scoring';
+import { applyVenueFilters } from '../lib/scoring';
 import { atmosphere, mapboxSunDir } from '../lib/sun';
 import { formatDateLabel, roundToQuarter } from '../lib/time';
 import type { LoadingState, OSMStatus, ShadowStatus } from '../types/atmosphere';
@@ -9,8 +10,8 @@ import type { OutdoorSetting, ShadowScore, Venue, VenueCategory } from '../types
 
 export const INITIAL_HOUR = roundToQuarter(new Date().getHours() + new Date().getMinutes() / 60);
 
-export function usePatioAppState() {
-  const [allVenues, setAllVenues] = useState<Venue[]>(CURATED_VENUES);
+export function usePatioAppState(city: CityConfig) {
+  const [allVenues, setAllVenues] = useState<Venue[]>(city.slug === 'nyc' ? CURATED_VENUES : []);
   const [selectedNeighborhood, setSelectedNeighborhood] = useState('all');
   const [selectedCategory, setSelectedCategory] = useState<VenueCategory | 'all'>('all');
   const [selectedOutdoorSetting, setSelectedOutdoorSetting] = useState<OutdoorSetting | 'all'>('all');
@@ -29,10 +30,20 @@ export function usePatioAppState() {
     tone: 'loading',
   });
 
+  // Reset filters and venues when city changes
+  useEffect(() => {
+    setSelectedNeighborhood('all');
+    setSelectedCategory('all');
+    setSelectedOutdoorSetting('all');
+    setShadowScores({});
+    setAllVenues(city.slug === 'nyc' ? CURATED_VENUES : []);
+    setOsmStatus({ label: 'Loading venues…', tone: 'loading' });
+  }, [city.slug]);
+
   useEffect(() => {
     let cancelled = false;
 
-    fetchOSMVenues()
+    fetchOSMVenues(city)
       .then((venues) => {
         if (cancelled) return;
         setAllVenues(venues);
@@ -40,14 +51,21 @@ export function usePatioAppState() {
       })
       .catch(() => {
         if (cancelled) return;
-        setAllVenues(CURATED_VENUES);
-        setOsmStatus({ label: `${CURATED_VENUES.length} curated venues`, tone: 'warning' });
+        if (city.slug === 'nyc') {
+          setAllVenues(CURATED_VENUES);
+          setOsmStatus({ label: `${CURATED_VENUES.length} curated venues`, tone: 'warning' });
+        } else {
+          setAllVenues([]);
+          setOsmStatus({ label: 'Failed to load venues', tone: 'warning' });
+        }
       });
 
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [city.slug]);
+
+  const coords = useMemo(() => ({ lat: city.lat, lng: city.lng }), [city.lat, city.lng]);
 
   const neighborhoods = useMemo(() => {
     return [...new Set(allVenues.map((venue) => venue.hood).filter(Boolean))].sort((a, b) => a.localeCompare(b));
@@ -83,24 +101,19 @@ export function usePatioAppState() {
     [activeCategory, activeNeighborhood, activeOutdoorSetting, allVenues]
   );
 
-  const atmosphereState = useMemo(() => atmosphere(currentHour), [currentHour]);
-  const sunDirection = useMemo(() => mapboxSunDir(currentHour), [currentHour]);
-  const scoredVenues = useMemo(
-    () => scoreVenues(visibleVenues, currentHour, shadowScores),
-    [visibleVenues, currentHour, shadowScores]
-  );
+  const atmosphereState = useMemo(() => atmosphere(currentHour, coords), [currentHour, coords]);
+  const sunDirection = useMemo(() => mapboxSunDir(currentHour, coords), [currentHour, coords]);
 
   return {
     allVenues,
     atmosphereState,
     categories,
     currentHour,
-    dateLabel: formatDateLabel(),
+    dateLabel: formatDateLabel(city.shortName),
     loadingState,
     neighborhoods,
     outdoorSettings,
     osmStatus,
-    scoredVenues,
     selectedCategory: activeCategory,
     selectedNeighborhood: activeNeighborhood,
     selectedOutdoorSetting: activeOutdoorSetting,

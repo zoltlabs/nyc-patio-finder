@@ -1,8 +1,8 @@
 import type { BuildingFeature } from '../types/map';
 import type { ShadowScore, Venue } from '../types/venue';
 import type { Map } from 'mapbox-gl';
-import { calcScore } from './scoring';
-import { mapboxSunDir } from './sun';
+import { calcScore, scoreOpenSkyLocation } from './scoring';
+import { mapboxSunDir, type Coords } from './sun';
 
 interface PointGeometry {
   type: 'Point';
@@ -74,11 +74,12 @@ function dirLabel(azDeg: number): string {
 export function computeGeometricShadow(
   venue: Venue,
   hour: number,
-  buildingCache: BuildingFeature[]
+  buildingCache: BuildingFeature[],
+  coords: Coords
 ): ShadowScore | null {
   if (!buildingCache.length) return null;
 
-  const sun = mapboxSunDir(hour);
+  const sun = mapboxSunDir(hour, coords);
   if (sun.altDeg <= 0) {
     return { score: 0, shaded: true, reason: 'Sun below horizon', geo: true };
   }
@@ -125,7 +126,7 @@ export function computeGeometricShadow(
   }
 
   return {
-    score: calcScore(venue, hour),
+    score: calcScore(venue, hour, coords),
     shaded: false,
     reason: `Clear · ${Math.round(sun.altDeg)}° sun`,
     geo: true,
@@ -135,14 +136,40 @@ export function computeGeometricShadow(
 export function computeShadowScores(
   venues: Venue[],
   hour: number,
-  buildingCache: BuildingFeature[]
+  buildingCache: BuildingFeature[],
+  coords: Coords
 ): Record<string, ShadowScore> {
   const scores: Record<string, ShadowScore> = {};
   venues.forEach((venue) => {
-    const result = computeGeometricShadow(venue, hour, buildingCache);
+    const result = computeGeometricShadow(venue, hour, buildingCache, coords);
     if (result) scores[venue.id] = result;
   });
   return scores;
+}
+
+export function computeLocationShadowScore(
+  location: { lat: number; lng: number },
+  hour: number,
+  buildingCache: BuildingFeature[],
+  coords: Coords
+): ShadowScore {
+  const result = computeGeometricShadow(
+    {
+      id: 'destination',
+      name: 'Selected address',
+      category: 'cafe',
+      outdoorSetting: 'patio',
+      lat: location.lat,
+      lng: location.lng,
+      hood: 'Selected address',
+      facing: 'all',
+    },
+    hour,
+    buildingCache,
+    coords
+  );
+
+  return result ?? scoreOpenSkyLocation(hour, coords);
 }
 
 export function getShadowStatus(scores: Record<string, ShadowScore>): { state: 'active' | 'unavailable'; count: number } {

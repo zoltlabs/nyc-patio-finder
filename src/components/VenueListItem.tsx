@@ -47,8 +47,19 @@ function formatOutdoorSettingLabel(outdoorSetting: Venue['outdoorSetting']): str
   }
 }
 
+function formatMinutes(minutes: number): string {
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+  if (hours > 0 && remainingMinutes > 0) return `${hours}h ${remainingMinutes}m`;
+  if (hours > 0) return `${hours}h`;
+  return `${remainingMinutes}m`;
+}
+
 export function VenueListItem({ index, venue, onSelect, onShare }: VenueListItemProps) {
   const rank = (index + 1).toString().padStart(2, '0');
+  const windowMetrics = venue.windowMetrics;
+  const scoreLabel = windowMetrics ? `${Math.round(windowMetrics.averageScore)}` : `${venue.score}`;
+  const reason = windowMetrics?.explanation ?? venue.geo?.reason ?? null;
 
   return (
     <div className={`vi${index < 3 ? ' top' : ''}${venue.geo?.shaded ? ' shaded' : ''}`}>
@@ -62,7 +73,7 @@ export function VenueListItem({ index, venue, onSelect, onShare }: VenueListItem
             <span className="vi-rank">{rank}.</span> {venue.name}
           </div>
           <div className="vi-score" style={{ color: scoreColor(venue.score) }}>
-            {venue.score}
+            {scoreLabel}
           </div>
         </div>
         <div className="vi-meta">
@@ -85,8 +96,24 @@ export function VenueListItem({ index, venue, onSelect, onShare }: VenueListItem
               {venue.geo.shaded ? 'shaded' : 'direct sun'}
             </span>
           ) : null}
+          {windowMetrics ? (
+            <span className="vi-badge vi-badge-window">
+              {formatMinutes(windowMetrics.totalSunnyMinutes)} sun
+            </span>
+          ) : null}
         </div>
-        {venue.geo?.reason ? <div className="vi-reason">{venue.geo.reason}</div> : null}
+        {reason ? <div className="vi-reason">{reason}</div> : null}
+        {windowMetrics ? (
+          <div className="vi-timeline" aria-hidden="true">
+            {windowMetrics.timeline.map((sample) => (
+              <span
+                key={`${venue.id}-${sample.hour}`}
+                className={`vi-timeline-segment${sample.sunny ? ' sunny' : ' shaded'}`}
+                style={{ opacity: Math.max(0.3, sample.score / 100) }}
+              />
+            ))}
+          </div>
+        ) : null}
         <div className="score-track">
           <div
             className="score-fill"

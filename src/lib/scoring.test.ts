@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { applyVenueFilters, buildGeoJSON, scoreVenues } from './scoring';
+import { applyVenueFilters, buildGeoJSON, describeTimeWindow, scoreVenues } from './scoring';
 import type { ShadowScore, Venue } from '../types/venue';
+
+const COORDS = { lat: 40.7484, lng: -73.9857 };
 
 const VENUES: Venue[] = [
   {
@@ -64,17 +66,60 @@ describe('scoreVenues', () => {
       v3: { score: 88, shaded: false, reason: 'Clear', geo: true },
     };
 
-    const scored = scoreVenues(VENUES, 16, shadowScores);
+    const scored = scoreVenues(VENUES, {
+      currentHour: 16,
+      shadowScores,
+      coords: COORDS,
+    });
 
     expect(scored[0]?.id).toBe('v3');
     expect(scored.find((venue) => venue.id === 'v1')?.score).toBe(15);
     expect(scored.find((venue) => venue.id === 'v1')?.geo?.reason).toBe('Blocked');
   });
+
+  it('adds window metrics and reranks venues for time-window searches', () => {
+    const scored = scoreVenues(VENUES, {
+      currentHour: 16,
+      shadowScores: {},
+      coords: COORDS,
+      windowPreset: '2h',
+      rankingMode: 'total-sun',
+    });
+
+    expect(scored[0]?.windowMetrics).toBeDefined();
+    expect(scored[0]?.windowMetrics?.timeline.length).toBeGreaterThan(1);
+    expect(scored[0]?.windowMetrics?.explanation).toContain('direct sun');
+    expect(scored[0]?.score).toBeLessThanOrEqual(100);
+  });
+
+  it('supports custom time ranges', () => {
+    const meta = describeTimeWindow('custom', 12, COORDS, {
+      startHour: 13.5,
+      endHour: 16,
+    });
+
+    const scored = scoreVenues(VENUES, {
+      currentHour: 12,
+      shadowScores: {},
+      coords: COORDS,
+      windowPreset: 'custom',
+      rankingMode: 'continuous-sun',
+      customRange: {
+        startHour: 13.5,
+        endHour: 16,
+      },
+    });
+
+    expect(meta.label).toContain('1:30 PM');
+    expect(scored[0]?.windowMetrics?.timeline[0]?.hour).toBe(13.5);
+    const timeline = scored[0]?.windowMetrics?.timeline ?? [];
+    expect(timeline[timeline.length - 1]?.hour).toBe(16);
+  });
 });
 
 describe('buildGeoJSON', () => {
   it('includes category and outdoor setting in feature properties', () => {
-    const geojson = buildGeoJSON([VENUES[0]], 15, {});
+    const geojson = buildGeoJSON([VENUES[0]], 15, {}, COORDS, 'NYC');
     const feature = geojson.features[0];
 
     expect(feature?.properties.category).toBe('bar');

@@ -14,6 +14,6 @@ export function formatDisplayTime(hour: number): string {
   return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${h >= 12 ? 'PM' : 'AM'}`;
 }
 
-export function formatDateLabel(now = new Date()): string {
-  return `Today · ${now.toLocaleDateString(undefined, { weekday: 'short' })}, ${now.toLocaleDateString(undefined, { month: 'short' })} ${now.getDate()} · Real 3D NYC`;
+export function formatDateLabel(shortName = 'NYC', now = new Date()): string {
+  return `Today · ${now.toLocaleDateString(undefined, { weekday: 'short' })}, ${now.toLocaleDateString(undefined, { month: 'short' })} ${now.getDate()} · Real 3D ${shortName}`;
 }
