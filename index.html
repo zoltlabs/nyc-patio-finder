@@ -6,91 +6,9 @@
   <title>NYC Patio Sun Finder ☀️</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>☀️</text></svg>" />
 
-  <link rel="stylesheet" href="/src/style.css" />
 </head>
 <body>
-
-<div id="loading">
-  <div id="loading-icon">☀️</div>
-  <h2>NYC Patio Finder</h2>
-  <p>Loading 3D city · real buildings · live sun</p>
-  <a class="token-hint" href="https://account.mapbox.com/access-tokens/" target="_blank">
-    Need a free Mapbox token? Get one here →
-  </a>
-</div>
-
-<div id="gh-glow"></div>
-<div id="stars-overlay"></div>
-
-<!-- Sun visual element — positioned by JS -->
-<div id="sun-el">
-  <div class="sun-atmo"></div>
-  <div class="sun-corona"></div>
-  <div class="sun-rays"></div>
-  <div class="sun-disc"></div>
-  <div class="sun-flare"></div>
-</div>
-
-<div id="map"></div>
-
-<!-- Sidebar -->
-<div id="sidebar" class="card">
-  <div id="sidebar-title">☀️ <span>NYC</span> Patio Finder</div>
-  <div id="date-label">Today · Real 3D NYC</div>
-  <div id="period-badge">Golden Hour ✨</div>
-
-  <div id="filters">
-    <label for="hood-filter">Neighborhood</label>
-    <select id="hood-filter">
-      <option value="all">All neighborhoods</option>
-    </select>
-  </div>
-
-  <!-- Geometric shadow analysis status -->
-  <div id="shadow-status">
-    <div id="shadow-dot"></div>
-    <span id="shadow-label">Shadow analysis loading…</span>
-  </div>
-
-  <div id="alt-row">
-    <span>Sun</span>
-    <div id="alt-track"><div id="alt-fill" style="width:0%"></div></div>
-    <span id="alt-val">–</span>
-  </div>
-
-  <div id="list-title">🔥 Best spots right now</div>
-  <div id="venue-list"></div>
-</div>
-
-<!-- Time panel -->
-<div id="time-panel" class="card">
-  <div id="time-head">
-    <span id="time-val">6:00 PM</span>
-    <span id="time-sub">— Golden Hour ✨</span>
-  </div>
-  <div id="slider-wrap">
-    <div id="slider-rainbow"></div>
-    <input type="range" id="slider" min="0" max="23" step="0.25" value="18" />
-  </div>
-  <div id="time-labels">
-    <span>12 AM</span><span>4 AM</span><span>8 AM</span>
-    <span>12 PM</span><span>4 PM</span><span>8 PM</span><span>11 PM</span>
-  </div>
-</div>
-
-<div id="legend" class="card">
-  <div id="legend-title">Sun exposure</div>
-  <div class="li"><div class="ld" style="background:#ffdd22;box-shadow:0 0 7px #ffdd22"></div><span>Full sun  80–100</span></div>
-  <div class="li"><div class="ld" style="background:#ff7711"></div><span>Good sun  60–80</span></div>
-  <div class="li"><div class="ld" style="background:#ffaa44"></div><span>Partial   40–60</span></div>
-  <div class="li"><div class="ld" style="background:#4488ff"></div><span>Shaded    0–40</span></div>
-</div>
-
-<div id="osm-badge" class="card">
-  <div id="osm-dot"></div>
-  <span id="osm-label">Loading venues…</span>
-</div>
-
-<script type="module" src="/src/main.js"></script>
+<div id="root"></div>
+<script type="module" src="/src/main.tsx"></script>
 </body>
 </html>
