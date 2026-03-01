@@ -110,8 +110,6 @@ export function useMapboxPatioMap({
   const [destinationSunlight, setDestinationSunlight] = useState<ShadowScore | null>(null);
   const [sunVisual, setSunVisual] = useState<SunVisualState>(EMPTY_SUN_VISUAL);
 
-  const coords = useMemo(() => ({ lat: city.lat, lng: city.lng }), [city.lat, city.lng]);
-
   const latest = useRef({
     allVenues,
     atmosphereState,
@@ -335,14 +333,15 @@ export function useMapboxPatioMap({
     }
 
     mapboxgl.accessToken = MAPBOX_TOKEN;
+    const initialCity = latest.current.city;
 
     const map = new mapboxgl.Map({
       container: mapContainerRef.current,
       style: 'mapbox://styles/mapbox/standard',
-      center: [city.lng, city.lat],
-      zoom: city.zoom,
-      pitch: city.pitch,
-      bearing: city.bearing,
+      center: [initialCity.lng, initialCity.lat],
+      zoom: initialCity.zoom,
+      pitch: initialCity.pitch,
+      bearing: initialCity.bearing,
       antialias: true,
       preserveDrawingBuffer: true,
     });

@@ -77,34 +77,6 @@ export default function App() {
 
   const coords = { lat: city.lat, lng: city.lng };
 
-  const handleCityChange = useCallback((slug: string) => {
-    const newCity = getCityBySlug(slug);
-    setCity(newCity);
-    setSelectedAddress(null);
-    setAddressLookupError(null);
-    setAddressLookupPending(false);
-    const newPath = newCity.slug === DEFAULT_CITY ? '/' : `/${newCity.slug}`;
-    window.history.pushState(null, '', newPath);
-    document.title = `${newCity.shortName} Patio Finder — Daylight Maxxing`;
-  }, []);
-
-  // Handle browser back/forward
-  useEffect(() => {
-    const onPopState = () => {
-      setCity(getCityFromURL());
-      setSelectedAddress(null);
-      setAddressLookupError(null);
-      setAddressLookupPending(false);
-    };
-    window.addEventListener('popstate', onPopState);
-    return () => window.removeEventListener('popstate', onPopState);
-  }, []);
-
-  // Set document title on mount and city change
-  useEffect(() => {
-    document.title = `${city.shortName} Patio Finder — Daylight Maxxing`;
-  }, [city.shortName]);
-
   const {
     allVenues,
     atmosphereState,
@@ -130,6 +102,43 @@ export default function App() {
     setShadowScores,
     setShadowStatus,
   } = usePatioAppState(city);
+
+  const resetSearchStateForCity = useCallback(() => {
+    setSelectedNeighborhood('all');
+    setSelectedCategory('all');
+    setSelectedOutdoorSetting('all');
+    setShadowScores({});
+  }, [setSelectedCategory, setSelectedNeighborhood, setSelectedOutdoorSetting, setShadowScores]);
+
+  const handleCityChange = useCallback((slug: string) => {
+    const newCity = getCityBySlug(slug);
+    setCity(newCity);
+    setSelectedAddress(null);
+    setAddressLookupError(null);
+    setAddressLookupPending(false);
+    resetSearchStateForCity();
+    const newPath = newCity.slug === DEFAULT_CITY ? '/' : `/${newCity.slug}`;
+    window.history.pushState(null, '', newPath);
+    document.title = `${newCity.shortName} Patio Finder — Daylight Maxxing`;
+  }, [resetSearchStateForCity]);
+
+  // Handle browser back/forward
+  useEffect(() => {
+    const onPopState = () => {
+      setCity(getCityFromURL());
+      setSelectedAddress(null);
+      setAddressLookupError(null);
+      setAddressLookupPending(false);
+      resetSearchStateForCity();
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, [resetSearchStateForCity]);
+
+  // Set document title on mount and city change
+  useEffect(() => {
+    document.title = `${city.shortName} Patio Finder — Daylight Maxxing`;
+  }, [city.shortName]);
 
   // Apply URL hour param on mount
   useEffect(() => {

@@ -183,23 +183,10 @@ export function Sidebar({
   const isCustomRange = searchWindowPreset === 'custom';
 
   useEffect(() => {
-    if (selectedAddress) {
-      setAddressQuery(selectedAddress.label);
-    }
-  }, [selectedAddress]);
-
-  useEffect(() => {
     const trimmed = addressQuery.trim();
-    if (trimmed.length < 3) {
-      setAddressSuggestions([]);
-      setAddressSuggestionsLoading(false);
-      setAddressSuggestionsOpen(false);
-      setActiveSuggestionIndex(-1);
-      return;
-    }
+    if (trimmed.length < 3) return;
 
     const currentSearchId = ++addressSearchIdRef.current;
-    setAddressSuggestionsLoading(true);
 
     const timeoutId = window.setTimeout(() => {
       fetchAddressSuggestions(trimmed, city)
@@ -337,7 +324,18 @@ export function Sidebar({
                 id="address-search"
                 type="text"
                 value={addressQuery}
-                onChange={(event) => setAddressQuery(event.target.value)}
+                onChange={(event) => {
+                  const nextQuery = event.target.value;
+                  setAddressQuery(nextQuery);
+                  if (nextQuery.trim().length >= 3) {
+                    setAddressSuggestionsLoading(true);
+                  } else {
+                    setAddressSuggestions([]);
+                    setAddressSuggestionsLoading(false);
+                    setAddressSuggestionsOpen(false);
+                    setActiveSuggestionIndex(-1);
+                  }
+                }}
                 onFocus={() => {
                   if (addressSuggestions.length > 0 || addressSuggestionsLoading) {
                     setAddressSuggestionsOpen(true);

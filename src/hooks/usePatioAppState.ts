@@ -30,16 +30,6 @@ export function usePatioAppState(city: CityConfig) {
     tone: 'loading',
   });
 
-  // Reset filters and venues when city changes
-  useEffect(() => {
-    setSelectedNeighborhood('all');
-    setSelectedCategory('all');
-    setSelectedOutdoorSetting('all');
-    setShadowScores({});
-    setAllVenues(city.slug === 'nyc' ? CURATED_VENUES : []);
-    setOsmStatus({ label: 'Loading venues…', tone: 'loading' });
-  }, [city.slug]);
-
   useEffect(() => {
     let cancelled = false;
 
@@ -63,7 +53,7 @@ export function usePatioAppState(city: CityConfig) {
     return () => {
       cancelled = true;
     };
-  }, [city.slug]);
+  }, [city]);
 
   const coords = useMemo(() => ({ lat: city.lat, lng: city.lng }), [city.lat, city.lng]);
 
