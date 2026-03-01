@@ -10,7 +10,8 @@ export interface SunDirection {
 export interface VenueFeatureProperties {
   id: string;
   name: string;
-  type: string;
+  category: string;
+  outdoorSetting: string;
   hood: string;
   score: number;
   color: string;

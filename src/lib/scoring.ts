@@ -1,4 +1,4 @@
-import type { ShadowScore, Venue, VenueWithScore } from '../types/venue';
+import type { OutdoorSetting, ShadowScore, Venue, VenueCategory, VenueWithScore } from '../types/venue';
 import type { VenueFeatureCollection } from '../types/map';
 import { scoreColor } from './colors';
 import { sunPos } from './sun';
@@ -21,12 +21,39 @@ export function filterVenuesByNeighborhood(venues: Venue[], selectedNeighborhood
     : venues.filter((venue) => venue.hood === selectedNeighborhood);
 }
 
+export function filterVenuesByCategory(venues: Venue[], selectedCategory: VenueCategory | 'all'): Venue[] {
+  return selectedCategory === 'all' ? venues : venues.filter((venue) => venue.category === selectedCategory);
+}
+
+export function filterVenuesByOutdoorSetting(
+  venues: Venue[],
+  selectedOutdoorSetting: OutdoorSetting | 'all'
+): Venue[] {
+  return selectedOutdoorSetting === 'all'
+    ? venues
+    : venues.filter((venue) => venue.outdoorSetting === selectedOutdoorSetting);
+}
+
+export function applyVenueFilters(
+  venues: Venue[],
+  filters: {
+    neighborhood: string;
+    category: VenueCategory | 'all';
+    outdoorSetting: OutdoorSetting | 'all';
+  }
+): Venue[] {
+  return filterVenuesByOutdoorSetting(
+    filterVenuesByCategory(filterVenuesByNeighborhood(venues, filters.neighborhood), filters.category),
+    filters.outdoorSetting
+  );
+}
+
 export function calcScore(venue: Venue, hour: number): number {
   const position = sunPos(hour);
   if (position.altitude <= 0) return 0;
   const altDeg = position.altitude * (180 / Math.PI);
 
-  if (venue.type === 'rooftop' || venue.facing === 'all') {
+  if (venue.outdoorSetting === 'rooftop' || venue.facing === 'all') {
     return Math.min(100, Math.round(altDeg <= 50 ? (altDeg / 50) * 100 : 100 - ((altDeg - 50) / 40) * 12));
   }
 
@@ -45,6 +72,21 @@ export function scoreVenues(venues: Venue[], hour: number, shadowScores: Record<
       return { ...venue, score, geo };
     })
     .sort((a, b) => b.score - a.score);
+}
+
+export function computeSunUntil(
+  venue: Venue,
+  fromHour: number,
+  shadowScores: Record<string, ShadowScore>
+): number | null {
+  const geo = shadowScores[venue.id];
+  const currentScore = geo?.score ?? calcScore(venue, fromHour);
+  if (currentScore < 40) return null;
+
+  for (let h = fromHour + 0.25; h <= 23; h = Math.round((h + 0.25) * 4) / 4) {
+    if (calcScore(venue, h) < 40) return h;
+  }
+  return null;
 }
 
 export function buildGeoJSON(
@@ -66,7 +108,8 @@ export function buildGeoJSON(
         properties: {
           id: venue.id,
           name: venue.name,
-          type: venue.type,
+          category: venue.category,
+          outdoorSetting: venue.outdoorSetting,
           hood: venue.hood || 'NYC',
           score,
           color: scoreColor(score),

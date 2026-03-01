@@ -1,10 +1,24 @@
 import { CURATED_VENUES } from '../data/curatedVenues';
-import type { Facing, Venue } from '../types/venue';
+import type { Facing, Venue, VenueCategory } from '../types/venue';
 import type { OverpassResponse } from '../types/map';
 
 export function guessFacing(lat: number, lng: number): Facing {
   const options: Facing[] = ['south', 'south', 'west', 'west', 'east', 'south', 'west', 'all'];
   return options[Math.abs(Math.round(lat * 1337 + lng * 997)) % options.length] ?? 'all';
+}
+
+export function normalizeOSMCategory(tags: Record<string, string>): VenueCategory {
+  switch (tags.amenity) {
+    case 'bar':
+    case 'pub':
+      return 'bar';
+    case 'restaurant':
+      return 'restaurant';
+    case 'cafe':
+      return 'cafe';
+    default:
+      return 'restaurant';
+  }
 }
 
 export async function fetchOSMVenues(): Promise<Venue[]> {
@@ -14,6 +28,7 @@ export async function fetchOSMVenues(): Promise<Venue[]> {
   node["amenity"="bar"]["outdoor_seating"="yes"](${bbox});
   node["amenity"="pub"]["outdoor_seating"="yes"](${bbox});
   node["amenity"="restaurant"]["outdoor_seating"="yes"](${bbox});
+  node["amenity"="cafe"]["outdoor_seating"="yes"](${bbox});
 );
 out;`;
 
@@ -32,7 +47,8 @@ out;`;
     .map((element) => ({
       id: `osm_${element.id}`,
       name: element.tags?.name ?? 'Unknown venue',
-      type: 'patio',
+      outdoorSetting: 'patio',
+      category: normalizeOSMCategory(element.tags ?? {}),
       lat: element.lat as number,
       lng: element.lon as number,
       hood: element.tags?.['addr:suburb'] || element.tags?.['addr:neighbourhood'] || 'NYC',

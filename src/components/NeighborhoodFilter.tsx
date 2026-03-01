@@ -10,7 +10,7 @@ export function NeighborhoodFilter({
   onChange,
 }: NeighborhoodFilterProps) {
   return (
-    <div id="filters">
+    <div className="filter-group">
       <label htmlFor="hood-filter">Neighborhood</label>
       <select
         id="hood-filter"

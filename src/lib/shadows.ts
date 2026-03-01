@@ -83,8 +83,8 @@ export function computeGeometricShadow(
     return { score: 0, shaded: true, reason: 'Sun below horizon', geo: true };
   }
 
-  const maxDist = venue.type === 'rooftop' ? 120 : 550;
-  const tolerance = venue.type === 'rooftop' ? 40 : 30;
+  const maxDist = venue.outdoorSetting === 'rooftop' ? 120 : 550;
+  const tolerance = venue.outdoorSetting === 'rooftop' ? 40 : 30;
   const latMeters = 111320;
   const lngMeters = 111320 * Math.cos(venue.lat * Math.PI / 180);
 

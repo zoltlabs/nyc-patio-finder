@@ -1,4 +1,5 @@
-export type VenueType = 'rooftop' | 'garden' | 'patio';
+export type OutdoorSetting = 'rooftop' | 'garden' | 'patio';
+export type VenueCategory = 'bar' | 'restaurant' | 'cafe' | 'brewery';
 
 export type Facing =
   | 'all'
@@ -14,7 +15,8 @@ export type Facing =
 export interface Venue {
   id: string;
   name: string;
-  type: VenueType;
+  outdoorSetting: OutdoorSetting;
+  category: VenueCategory;
   lat: number;
   lng: number;
   hood: string;

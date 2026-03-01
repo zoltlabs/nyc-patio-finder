@@ -4,14 +4,15 @@ import { VenueListItem } from './VenueListItem';
 interface VenueListProps {
   venues: VenueWithScore[];
   onSelect: (lng: number, lat: number) => void;
+  onShare: (venue: VenueWithScore) => void;
 }
 
-export function VenueList({ venues, onSelect }: VenueListProps) {
+export function VenueList({ venues, onSelect, onShare }: VenueListProps) {
   if (!venues.length) {
     return (
       <div id="venue-list">
         <div className="vi">
-          <div className="vi-name">No venues match this neighborhood.</div>
+          <div className="vi-name">No venues match the current filters.</div>
         </div>
       </div>
     );
@@ -20,7 +21,7 @@ export function VenueList({ venues, onSelect }: VenueListProps) {
   return (
     <div id="venue-list">
       {venues.slice(0, 8).map((venue, index) => (
-        <VenueListItem key={venue.id} index={index} venue={venue} onSelect={onSelect} />
+        <VenueListItem key={venue.id} index={index} venue={venue} onSelect={onSelect} onShare={onShare} />
       ))}
     </div>
   );

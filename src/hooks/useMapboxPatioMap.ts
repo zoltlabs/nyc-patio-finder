@@ -67,7 +67,7 @@ function popupHTML(properties: VenueFeatureProperties, hour: number): string {
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
       <div style="font-family: 'Charter', serif; font-size: 17px; font-weight: 500; margin-bottom: 4px; color: #fff;">${properties.name}</div>
       <div style="font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px;">
-        ${properties.hood} · ${properties.type}
+        ${properties.hood} · ${properties.category} · ${properties.outdoorSetting}
       </div>
       <div style="display:flex;align-items:center;gap:10px">
         <div style="flex:1;height:2px;background:rgba(255,255,255,0.1);border-radius:1px;overflow:hidden">
@@ -148,7 +148,8 @@ export function useMapboxPatioMap({
         {
           id: venue.id,
           name: venue.name,
-          type: venue.type,
+          category: venue.category,
+          outdoorSetting: venue.outdoorSetting,
           hood: venue.hood || 'NYC',
           score,
           color,
